@@ -50,11 +50,15 @@ class _MyAppState extends State<MyApp> {
   RewardedAd? _rewardedAd;
   int _numRewardedLoadAttempts = 0;
 
+  RewardedInterstitialAd? _rewardedInterstitialAd;
+  int _numRewardedInterstitialLoadAttempts = 0;
+
   @override
   void initState() {
     super.initState();
     _createInterstitialAd();
     _createRewardedAd();
+    _createRewardedInterstitialAd();
   }
 
   void _createInterstitialAd() {
@@ -144,10 +148,62 @@ class _MyAppState extends State<MyApp> {
     );
 
     _rewardedAd!.setImmersiveMode(true);
-    _rewardedAd!.show(onUserEarnedReward: (RewardedAd ad, RewardItem reward) {
-      print('$ad with reward $RewardItem(${reward.amount}, ${reward.type}');
+    _rewardedAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+      print('$ad with reward $RewardItem(${reward.amount}, ${reward.type})');
     });
     _rewardedAd = null;
+  }
+
+  void _createRewardedInterstitialAd() {
+    RewardedInterstitialAd.load(
+        adUnitId: RewardedInterstitialAd.testAdUnitId,
+        request: request,
+        rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
+          onAdLoaded: (RewardedInterstitialAd ad) {
+            print('$ad loaded.');
+            _rewardedInterstitialAd = ad;
+            _numRewardedInterstitialLoadAttempts = 0;
+          },
+          onAdFailedToLoad: (LoadAdError error) {
+            print('RewardedInterstitialAd failed to load: $error');
+            _rewardedInterstitialAd = null;
+            _numRewardedInterstitialLoadAttempts += 1;
+            if (_numRewardedInterstitialLoadAttempts <= maxFailedLoadAttempts) {
+              _createRewardedInterstitialAd();
+            }
+          },
+        ));
+  }
+
+  void _showRewardedInterstitialAd() {
+    if (_rewardedInterstitialAd == null) {
+      print('Warning: attempt to show rewarded interstitial before loaded.');
+      return;
+    }
+    _rewardedInterstitialAd!.fullScreenContentCallback =
+        FullScreenContentCallback(
+      onAdShowedFullScreenContent: (RewardedInterstitialAd ad) =>
+          print('$ad onAdShowedFullScreenContent.'),
+      onAdDismissedFullScreenContent: (RewardedInterstitialAd ad) {
+        print('$ad onAdDismissedFullScreenContent.');
+        ad.dispose();
+        _createRewardedInterstitialAd();
+      },
+      onAdFailedToShowFullScreenContent:
+          (RewardedInterstitialAd ad, AdError error) {
+        print('$ad onAdFailedToShowFullScreenContent: $error');
+        ad.dispose();
+        _createRewardedInterstitialAd();
+      },
+    );
+
+    _rewardedInterstitialAd!.setImmersiveMode(true);
+    _rewardedInterstitialAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+      print('$ad with reward $RewardItem(${reward.amount}, ${reward.type})');
+    });
+    _rewardedInterstitialAd = null;
   }
 
   @override
@@ -155,6 +211,7 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
     _interstitialAd?.dispose();
     _rewardedAd?.dispose();
+    _rewardedInterstitialAd?.dispose();
   }
 
   @override
@@ -173,6 +230,9 @@ class _MyAppState extends State<MyApp> {
                       break;
                     case 'RewardedAd':
                       _showRewardedAd();
+                      break;
+                    case 'RewardedInterstitialAd':
+                      _showRewardedInterstitialAd();
                       break;
                     case 'Fluid':
                       Navigator.push(
@@ -206,6 +266,10 @@ class _MyAppState extends State<MyApp> {
                   PopupMenuItem<String>(
                     value: 'RewardedAd',
                     child: Text('RewardedAd'),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'RewardedInterstitialAd',
+                    child: Text('RewardedInterstitialAd'),
                   ),
                   PopupMenuItem<String>(
                     value: 'Fluid',
